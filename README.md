@@ -83,7 +83,12 @@ SKILL.md 共 24 章，按用途分为五类。
 | 23. Agent 行为示例 | 三个完整案例：运行后死机、I2C 读 ID 错误、UART + DMA 偶发停止 |
 | 24. 核心原则 | 七条不可妥协的底线 |
 
-### 安装
+### 安装步骤
+
+**安装本skill前提**：先安装Serial Agent，以让AI能通过串口/stink读取到你的板端信息，安装步骤请看以下仓库链接：
+```markdown
+https://github.com/Rance-OwO/Serial-Agent，按照该大佬仓库步骤进行安装。
+```
 
 Skill 就是一个目录，把 `skills/embedded-debugging` 整个复制到你的 Agent skills 目录下即可。
 
@@ -120,6 +125,11 @@ ln -s "$(pwd)/skills/embedded-debugging" ~/.qoder/skills/embedded-debugging
 ```
 
 安装完成后重启 Agent 会话。当你提到 STM32、FreeRTOS、HardFault、DMA、串口日志、烧录、开发板调试这类关键词时，Skill 会自动触发；也可以直接要求 Agent 使用 embedded-debugging。
+
+**也可以让Agent帮你装，复制下述内容给你的Agent即可**：
+```markdown
+请安装skill:https://github.com/notnameuse/embedded-debug-skill，要能在工作区调用，安装完成后测试是否能成功触发。
+```
 
 ### 依赖说明
 
@@ -183,6 +193,11 @@ embedded-debug-skill/
 
 后续新增的 Skill 会平铺在 `skills/` 下。
 
+
+### 参考文献
+[1]https://github.com/Rance-OwO/Serial-Agent
+
+[2]https://github.com/shangliny10-lab/embedded-skills
 ---
 
 ## English
@@ -226,6 +241,11 @@ INIT → REPRODUCE → COLLECT → HYPOTHESIS → LOCALIZE → PATCH → BUILD �
 ```
 
 ### Installation
+
+**please install serial agent firstly**:
+```markdown
+https://github.com/Rance-OwO/Serial-Agent，
+```
 
 A skill is just a directory. Copy `skills/embedded-debugging` into your agent's skills directory.
 
@@ -273,6 +293,10 @@ Exact tool names come from whatever your MCP server actually provides; the skill
 
 Rule 6 is the hardest constraint here. When real-device verification is not possible, the agent may only state: the code-level fix is complete, but on-target verification has not been done.
 
+### reference
+[1]https://github.com/Rance-OwO/Serial-Agent
+
+[2]https://github.com/shangliny10-lab/embedded-skills
 ---
 
 ## License
