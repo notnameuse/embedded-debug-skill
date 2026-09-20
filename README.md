@@ -20,6 +20,17 @@ A systematic debugging skill for real embedded hardware. It makes your AI agent 
 
 它同时明确了职责边界。Skill 负责调试策略，Serial Agent / MCP 负责实际连接设备、采集数据、编译、烧录和验证。环境里没有某项能力时，Agent 必须退化为给出需要人工执行的最小操作步骤，禁止假装执行。
 
+### 本仓库包含的 Skill
+
+本仓库平铺了两个互相配合的 Skill：
+
+| Skill | 定位 |
+|---|---|
+| `embedded-debugging` | 通用嵌入式调试方法论 + Serial Agent/MCP 的编译/烧录/看串口闭环（决策规范，本身不连硬件） |
+| `keil-mcp-debug` | STM32F4 + ST-Link 的**源码级在线调试**能力：经 mcp-gdb + arm-none-eabi-gdb + OpenOCD 下断点/单步/看变量/读内存/查调用栈（仅 Windows） |
+
+`embedded-debugging` 在需要断点级源码调试时**委托** `keil-mcp-debug` 执行；**建议两者同时安装**（每个工作区各装一次），只用其一也能独立工作。
+
 ### 覆盖范围
 
 - **平台**：STM32F0/F1/F2/F3/F4/F7/G0/G4/H5/H7 等 Cortex-M 系列
@@ -90,7 +101,7 @@ SKILL.md 共 24 章，按用途分为五类。
 https://github.com/Rance-OwO/Serial-Agent，按照该大佬仓库步骤进行安装。
 ```
 
-Skill 就是一个目录，把 `skills/embedded-debugging` 整个复制到你的 Agent skills 目录下即可。
+Skill 就是一个目录。本仓库的两个 Skill 各自独立，把 `skills/` 下要用的目录整个复制到你的 Agent skills 目录即可（`embedded-debugging` 做源码级断点调试时依赖 `keil-mcp-debug`，建议一起装）。
 
 ```bash
 git clone https://github.com/notnameuse/embedded-debug-skill.git
@@ -101,28 +112,31 @@ cd embedded-debug-skill
 
 ```bash
 mkdir -p ~/.qoder/skills
-cp -r skills/embedded-debugging ~/.qoder/skills/
+cp -r skills/embedded-debugging skills/keil-mcp-debug ~/.qoder/skills/
 ```
 
 **Claude Code（全局生效）**
 
 ```bash
 mkdir -p ~/.claude/skills
-cp -r skills/embedded-debugging ~/.claude/skills/
+cp -r skills/embedded-debugging skills/keil-mcp-debug ~/.claude/skills/
 ```
 
 **仅当前项目生效**
 
 ```bash
 mkdir -p .qoder/skills      # 或 .claude/skills
-cp -r skills/embedded-debugging .qoder/skills/
+cp -r skills/embedded-debugging skills/keil-mcp-debug .qoder/skills/
 ```
 
 **用软链接代替复制**，这样 `git pull` 之后本地 Skill 自动跟着更新：
 
 ```bash
 ln -s "$(pwd)/skills/embedded-debugging" ~/.qoder/skills/embedded-debugging
+ln -s "$(pwd)/skills/keil-mcp-debug" ~/.qoder/skills/keil-mcp-debug
 ```
+
+> `keil-mcp-debug` 是**按工作区**加载的引导式技能（仅 Windows + ST-Link + STM32F4）：首次使用需探测/登记工具链、把 `gdb` 写进工作区 `.qoder/mcp.json`，详细步骤见其 `SKILL.md`。
 
 安装完成后重启 Agent 会话。当你提到 STM32、FreeRTOS、HardFault、DMA、串口日志、烧录、开发板调试这类关键词时，Skill 会自动触发；也可以直接要求 Agent 使用 embedded-debugging。
 
@@ -187,8 +201,13 @@ embedded-debug-skill/
 ├── README.md
 ├── LICENSE                          # MIT
 └── skills/
-    └── embedded-debugging/
-        └── SKILL.md                 # Skill 本体，24 章
+    ├── embedded-debugging/
+    │   └── SKILL.md                 # 通用调试方法论，24 章
+    └── keil-mcp-debug/              # STM32F4 源码级在线调试链路（仅 Windows）
+        ├── SKILL.md                 # 引导式技能
+        ├── config/
+        │   └── toolchain.example.json
+        └── scripts/                 # env-doctor / dwarf-check / debug_start / debug_stop / openocd_halt / lib\common.ps1
 ```
 
 后续新增的 Skill 会平铺在 `skills/` 下。
@@ -211,6 +230,17 @@ This skill constrains how the agent debugs. It defines what to check first, what
 > Evidence over guesswork. Real device data over static code speculation.
 
 It also draws a hard line on responsibility. The skill owns debugging strategy; the Serial Agent / MCP owns actually connecting to the device, collecting data, building, flashing, and verifying. When a capability is missing from the environment, the agent must fall back to giving you the minimal manual steps — it may not pretend to have executed something.
+
+### Skills in this repo
+
+This repo ships two cooperating skills:
+
+| Skill | Role |
+|---|---|
+| `embedded-debugging` | General embedded-debugging methodology plus the Serial Agent/MCP build/flash/serial loop (a decision spec; it drives no hardware itself) |
+| `keil-mcp-debug` | Source-level online debugging for STM32F4 + ST-Link via mcp-gdb + arm-none-eabi-gdb + OpenOCD — breakpoints, stepping, variables, memory, call stacks (Windows only) |
+
+`embedded-debugging` delegates to `keil-mcp-debug` when it needs breakpoint-level source debugging. Install both (one copy per workspace) for the full loop; each also works on its own.
 
 ### Coverage
 
@@ -247,26 +277,27 @@ INIT → REPRODUCE → COLLECT → HYPOTHESIS → LOCALIZE → PATCH → BUILD �
 https://github.com/Rance-OwO/Serial-Agent，
 ```
 
-A skill is just a directory. Copy `skills/embedded-debugging` into your agent's skills directory.
+A skill is just a directory. Copy the skills you need from `skills/` into your agent's skills directory (`embedded-debugging` needs `keil-mcp-debug` for source-level debugging, so install both).
 
 ```bash
 git clone https://github.com/notnameuse/embedded-debug-skill.git
 cd embedded-debug-skill
 
 # Qoder (user-wide)
-mkdir -p ~/.qoder/skills && cp -r skills/embedded-debugging ~/.qoder/skills/
+mkdir -p ~/.qoder/skills && cp -r skills/embedded-debugging skills/keil-mcp-debug ~/.qoder/skills/
 
 # Claude Code (user-wide)
-mkdir -p ~/.claude/skills && cp -r skills/embedded-debugging ~/.claude/skills/
+mkdir -p ~/.claude/skills && cp -r skills/embedded-debugging skills/keil-mcp-debug ~/.claude/skills/
 
 # Project-scoped
-mkdir -p .qoder/skills && cp -r skills/embedded-debugging .qoder/skills/
+mkdir -p .qoder/skills && cp -r skills/embedded-debugging skills/keil-mcp-debug .qoder/skills/
 ```
 
 Symlink instead of copying if you want `git pull` to keep the installed skill up to date:
 
 ```bash
 ln -s "$(pwd)/skills/embedded-debugging" ~/.qoder/skills/embedded-debugging
+ln -s "$(pwd)/skills/keil-mcp-debug" ~/.qoder/skills/keil-mcp-debug
 ```
 
 Restart the agent session afterwards. The skill triggers on keywords like STM32, FreeRTOS, HardFault, DMA, serial log, flashing, or board debugging, and you can also invoke `embedded-debugging` explicitly.

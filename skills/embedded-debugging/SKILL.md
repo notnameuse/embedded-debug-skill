@@ -11,7 +11,7 @@ description: 面向真实嵌入式设备的系统化调试 Skill。重点覆盖 
 
 核心原则：
 
-> Skill 负责“怎么查、先查什么、根据结果下一步查什么”；Serial Agent / MCP 负责“实际连接设备、采集数据、执行命令、烧录和验证”。
+> Skill 负责“怎么查、先查什么、根据结果下一步查什么”；Serial Agent / MCP 负责“实际连接设备、采集数据、执行命令、烧录和验证”；**源码级在线调试（断点/单步/变量/内存/寄存器/调用栈）由 `keil-mcp-debug` 执行（见 §1.1）**。
 
 目标是把：
 
@@ -44,6 +44,16 @@ Serial Monitor / Debugger 验证
 ```
 
 禁止把“猜测”当成“定位结果”。如果缺少现场数据，应明确说明缺什么数据，并优先通过可用工具获取。
+
+### 1.1 强制委托：源码级在线调试 → `keil-mcp-debug`
+
+当需要在**真机**上做**源码级在线调试**——即 **打断点 / 单步 / 查看变量 / 读内存 / 读寄存器 / 查调用栈**，以及 **Debugger 停机读现场（Halt 后取 PC/LR/SP/CFSR 等）**——时，**必须调用 `keil-mcp-debug` skill（本环境用 `Skill` 工具触发）**，并按其 `SKILL.md` 的流程执行（**先过 DWARF 门禁（离线、不占探针）→ 再起 OpenOCD → 建 gdb 会话 → 断点/单步/print/examine → teardown**）。
+
+约束：
+
+- **不得**用 Serial Agent、Serial Monitor 或自行拼接 gdb/openocd 命令来“替代”这一步；本 skill 只负责调试方法论与“编译/烧录/看串口”闭环，源码级断点调试一律交给 `keil-mcp-debug`。
+- **前提**：该工作区需**同时安装 `keil-mcp-debug`**（与 `embedded-debugging` 各自一份，每工作区各装一次）；未安装时明确提示用户“需另装 `keil-mcp-debug` 才能做源码级调试”，不得假装已具备该能力。
+- 若当前环境缺少所需工具/能力，按 §3.2 原则退化为“给出需要人工执行的最小操作”。
 
 ---
 
@@ -89,17 +99,19 @@ Serial Agent 是设备侧执行层。实际项目中可通过 MCP 暴露以下�
 设备连接 / 状态检查
 串口打开、关闭、发送、持续监控、读取日志
 设备复位、启动、停止
-Debugger 连接、halt、run、reset
-寄存器读取
-内存读取
-GDB 调试
-ELF 符号解析
+Debugger 连接、halt、run、reset        （源码级现场 → 见 §1.1 委托）
+寄存器读取                              （源码级现场 → 见 §1.1 委托）
+内存读取                                （源码级现场 → 见 §1.1 委托）
+GDB 调试                                （源码级 → 见 §1.1 委托）
+ELF 符号解析                            （离线 addr2line 可自行做；在线符号见 §1.1）
 固件 Build
 固件 Flash / Download
 逻辑分析仪 / 示波器数据获取（如果已接入）
 ```
 
 如果当前环境没有某项能力，不得假装执行；应退化为“给出需要人工执行的最小操作”。
+
+> **源码级在线调试委托**：上表中带“源码级/在线符号”标注的能力（GDB 调试 / ELF 在线符号 / 断点 / 单步 / 变量 / 内存 / 寄存器 / 调用栈）**由配套的 `keil-mcp-debug` skill 提供**（走 mcp-gdb + arm-none-eabi-gdb + OpenOCD + ST-Link）；**强制调用要求与安装依赖见 §1.1**，环境搭建、DWARF 门禁与调试/teardown 流程以 `keil-mcp-debug/SKILL.md` 为准。
 
 ### 3.3 工具调用原则
 
@@ -227,7 +239,7 @@ Task / Queue / Mutex / Heap / Stack / Scheduler
 
 1. 检查设备连接状态。
 2. 获取已有串口日志。
-3. 根据问题类型选择 Debugger / Serial / Logic Analyzer 等能力。
+3. 根据问题类型选择 Debugger / Serial / Logic Analyzer 等能力（Debugger 类由 `keil-mcp-debug` 提供，见 §1.1）。
 4. 采集现场。
 5. 分析数据。
 6. 如果需要代码修复，先定位源码。
@@ -388,7 +400,7 @@ MMFAR
 BFAR
 ```
 
-如果 Debugger 可以在 Fault 后 Halt，应优先直接读取现场，不要先 Reset。
+如果 **Debugger 能力可用（本环境经 `keil-mcp-debug`，见 §1.1）**，应在 Fault 后 Halt 并优先直接读取现场（PC/LR/SP/CFSR），不要先 Reset。
 
 ## 8.2 Cortex-M Fault 分析
 
@@ -424,6 +436,8 @@ arm-none-eabi-addr2line -e firmware.elf -f -C -p 0x08001234
 
 同时解析 LR 和必要的调用栈地址。
 
+> 离线用 `addr2line` 自行解析（不占探针）即可；若需**在线**取符号/断点级调试，须委托 `keil-mcp-debug`（见 §1.1）。
+
 不要只看 PC 就下结论：
 
 - PC 落在有效代码区：继续分析调用路径和 Fault 类型。
@@ -440,7 +454,7 @@ arm-none-eabi-addr2line -e firmware.elf -f -C -p 0x08001234
 
 1. 确认变量地址。
 2. 检查相邻内存对象。
-3. 使用 GDB watchpoint（如果硬件资源允许）。
+3. 需要 watchpoint 时经 `keil-mcp-debug`（见 §1.1）：DWT watchpoint 上限 4，用完即删；不要自行拼接 gdb。
 4. 检查 DMA 是否写越界。
 5. 检查数组长度与 memcpy/memset 长度。
 6. 检查 ISR 与 Task 是否并发访问。
@@ -837,7 +851,7 @@ Agent 应：
 
 1. 获取最后一段串口日志。
 2. 检查是否有 Fault 日志。
-3. 如果能连接 Debugger，优先 Halt 并获取 PC/LR/SP/CFSR。
+3. 如果能连接 Debugger（经 `keil-mcp-debug`，见 §1.1），优先 Halt 并获取 PC/LR/SP/CFSR。
 4. 用 ELF 解析 PC/LR。
 5. 获取 Task 状态与 Stack High Water Mark。
 6. 获取 Heap 当前值和历史最低值（如果可用）。
@@ -881,7 +895,7 @@ Agent 应：
 
 > **真实设备数据优先于静态代码推测。**
 
-> **Skill 决定调试策略，Serial Agent/MCP 执行设备操作。**
+> **Skill 决定调试策略；Serial Agent/MCP 执行设备操作（编译/烧录/串口）；源码级在线调试由 `keil-mcp-debug` 执行（见 §1.1）。**
 
 > **一次验证一个主要假设。**
 

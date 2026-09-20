@@ -1,0 +1,19 @@
+{
+  "_comment": "复制为同目录 toolchain.json 后按本机实际路径填写。所有路径用正斜杠 / 。仅验证 STM32F4 + Windows + ST-Link；非 F4 需按该系列参考手册改 targetCfg 与 dbgmcu 后自担风险。",
+  "openocdExe": "D:/mcu-tools/openocd/bin/openocd.exe",
+  "openocdScriptsDir": "D:/mcu-tools/openocd/openocd/scripts",
+  "gdbExe": "D:/mcu-tools/gcc-arm/14.2 rel1/bin/arm-none-eabi-gdb.exe",
+  "targetCfg": "target/stm32f4x.cfg",
+  "interfaceCfg": "interface/stlink.cfg",
+  "resetConfig": "cortex_m reset_config sysresetreq",
+  "gdbPort": 3333,
+  "telnetPort": 4444,
+  "dbgmcu": {
+    "_comment": "F4 默认: DBGMCU_APB2_FZ=0xE004200C bit0=DBG_TIM1_STOP(封波保命), DBGMCU_APB1_FZ=0xE0042008 bit25=DBG_CAN1_STOP",
+    "apb2Fz": "0xE004200C",
+    "tim1StopBit": 0,
+    "apb1Fz": "0xE0042008",
+    "can1StopBit": 25
+  },
+  "axfPath": ""
+}
