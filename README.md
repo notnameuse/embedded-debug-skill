@@ -20,6 +20,8 @@ A systematic debugging skill for real embedded hardware. It makes your AI agent 
 
 它同时明确了职责边界。Skill 负责调试策略，Serial Agent / MCP 负责实际连接设备、采集数据、编译、烧录和验证。环境里没有某项能力时，Agent 必须退化为给出需要人工执行的最小操作步骤，禁止假装执行。
 
+此外，当需要在keil中进行在线调板子时，比如打断点、看内存、看调用栈，一般只能亲手去keil软件自己操作，现在利用`keil-mcp-debug`这个skill即可越过Keil图形界面，**AI直接帮你调硬件**，不用自己在慢慢调，极大提高调试效率。
+
 ### 本仓库包含的 Skill
 
 本仓库平铺了两个互相配合的 Skill：
